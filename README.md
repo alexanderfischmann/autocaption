@@ -1,0 +1,1 @@
+Simple app for transcribing subtitles onto videos. A work in progress.

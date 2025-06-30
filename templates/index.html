@@ -47,8 +47,23 @@
       background-color: #aaa;
       cursor: not-allowed;
     }
+    #progressContainer {
+      width: 400px;
+      height: 25px;
+      background: #eee;
+      margin: 20px auto;
+      border-radius: 15px;
+      overflow: hidden;
+      display: none;
+    }
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: #4CAF50;
+      transition: width 0.4s ease;
+    }
     #status {
-      margin-top: 20px;
+      margin-top: 10px;
       font-weight: bold;
       color: #555;
     }
@@ -60,6 +75,11 @@
   <input type="file" id="file_input" style="display:none" accept="video/*" />
   <div id="filename"></div>
   <button id="transcribe_btn" disabled>Start Transcription</button>
+
+  <div id="progressContainer">
+    <div id="progressBar"></div>
+  </div>
+
   <p id="status"></p>
 
   <script>
@@ -68,8 +88,11 @@
     const transcribeBtn = document.getElementById('transcribe_btn');
     const status = document.getElementById('status');
     const filenameDisplay = document.getElementById('filename');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
 
     let selectedFile = null;
+    let fakeProgressInterval;
 
     dropZone.addEventListener('click', () => fileInput.click());
 
@@ -108,11 +131,32 @@
       status.textContent = '';
     }
 
+    function startFakeProgressBar() {
+      let progress = 0;
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '0%';
+      fakeProgressInterval = setInterval(() => {
+        progress += Math.random() * 5;
+        if (progress >= 95) progress = 95; // stop at 95% until real response
+        progressBar.style.width = `${progress}%`;
+      }, 400);
+    }
+
+    function stopFakeProgressBar() {
+      clearInterval(fakeProgressInterval);
+      progressBar.style.width = '100%';
+      setTimeout(() => {
+        progressContainer.style.display = 'none';
+        progressBar.style.width = '0%';
+      }, 1500);
+    }
+
     transcribeBtn.addEventListener('click', () => {
       if (!selectedFile) return;
 
       transcribeBtn.disabled = true;
-      status.textContent = 'Uploading and processing...';
+      status.textContent = 'Uploading and transcribing...';
+      startFakeProgressBar();
 
       const formData = new FormData();
       formData.append('video', selectedFile);
@@ -126,6 +170,8 @@
           return response.blob();
         })
         .then(blob => {
+          stopFakeProgressBar();
+          status.textContent = 'Transcription complete. Downloading...';
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.style.display = 'none';
@@ -135,10 +181,11 @@
           a.click();
           a.remove();
           window.URL.revokeObjectURL(url);
-          status.textContent = 'Transcription complete! Downloaded SRT.';
+          status.textContent = 'Finished. Drop another file if you’d like.';
           transcribeBtn.disabled = false;
         })
         .catch(err => {
+          stopFakeProgressBar();
           status.textContent = 'Error: ' + err.message;
           transcribeBtn.disabled = false;
         });
