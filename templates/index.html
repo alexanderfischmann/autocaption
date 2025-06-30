@@ -1,93 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Drop Video File</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    margin-top: 50px;
-    background: #fafafa;
-  }
-  #drop_zone {
-    width: 400px;
-    height: 150px;
-    border: 3px dashed #bbb;
-    border-radius: 10px;
-    line-height: 150px;
-    color: #bbb;
-    margin: auto;
-    font-size: 24px;
-    cursor: pointer;
-    transition: border-color 0.3s, color 0.3s;
-  }
-  #drop_zone.hover {
-    border-color: #333;
-    color: #333;
-    background-color: #f0f0f0;
-  }
-  #status {
-    margin-top: 20px;
-    font-weight: bold;
-    color: #555;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Drop Video File</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+      background: #fafafa;
+    }
+    #drop_zone {
+      width: 400px;
+      height: 150px;
+      border: 3px dashed #bbb;
+      border-radius: 10px;
+      line-height: 150px;
+      color: #bbb;
+      margin: auto;
+      font-size: 24px;
+      cursor: pointer;
+      transition: border-color 0.3s, color 0.3s;
+    }
+    #drop_zone.hover {
+      border-color: #333;
+      color: #333;
+      background-color: #f0f0f0;
+    }
+    #filename {
+      margin-top: 10px;
+      font-weight: bold;
+      color: #444;
+    }
+    #transcribe_btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 18px;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #transcribe_btn:disabled {
+      background-color: #aaa;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      color: #555;
+    }
+  </style>
 </head>
 <body>
   <h1>Drop video file here</h1>
   <div id="drop_zone">Drop video file here</div>
   <input type="file" id="file_input" style="display:none" accept="video/*" />
+  <div id="filename"></div>
+  <button id="transcribe_btn" disabled>Start Transcription</button>
   <p id="status"></p>
 
   <script>
     const dropZone = document.getElementById('drop_zone');
     const fileInput = document.getElementById('file_input');
+    const transcribeBtn = document.getElementById('transcribe_btn');
     const status = document.getElementById('status');
+    const filenameDisplay = document.getElementById('filename');
 
-    // Click on drop zone opens file dialog
+    let selectedFile = null;
+
     dropZone.addEventListener('click', () => fileInput.click());
 
-    // Drag over effect
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       dropZone.classList.add('hover');
     });
 
-    // Drag leave effect
     dropZone.addEventListener('dragleave', () => {
       dropZone.classList.remove('hover');
     });
 
-    // Handle drop
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropZone.classList.remove('hover');
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        uploadFile(files[0]);
+      if (e.dataTransfer.files.length > 0) {
+        handleFile(e.dataTransfer.files[0]);
       }
     });
 
-    // Handle manual file selection
     fileInput.addEventListener('change', () => {
       if (fileInput.files.length > 0) {
-        uploadFile(fileInput.files[0]);
+        handleFile(fileInput.files[0]);
       }
     });
 
-    // Upload file function
-    function uploadFile(file) {
+    function handleFile(file) {
       if (!file.type.startsWith('video/')) {
         alert('Please upload a valid video file.');
         return;
       }
 
-      status.textContent = 'Uploading and processing... Please wait.';
+      selectedFile = file;
+      filenameDisplay.textContent = "Selected: " + file.name;
+      transcribeBtn.disabled = false;
+      status.textContent = '';
+    }
+
+    transcribeBtn.addEventListener('click', () => {
+      if (!selectedFile) return;
+
+      transcribeBtn.disabled = true;
+      status.textContent = 'Uploading and processing...';
 
       const formData = new FormData();
-      formData.append('video', file);
+      formData.append('video', selectedFile);
 
       fetch('/upload', {
         method: 'POST',
@@ -98,29 +126,23 @@
           return response.blob();
         })
         .then(blob => {
-          status.textContent = 'Transcription complete! Starting download...';
-
-          // Create a download link for the received blob
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.style.display = 'none';
           a.href = url;
-
-          // Name the download file as original filename with .srt extension
-          a.download = file.name.replace(/\.[^/.]+$/, '') + '.srt';
+          a.download = selectedFile.name.replace(/\.[^/.]+$/, '') + '.srt';
           document.body.appendChild(a);
           a.click();
-
-          // Cleanup
-          window.URL.revokeObjectURL(url);
           a.remove();
-
-          status.textContent = 'Drop another video file to transcribe.';
+          window.URL.revokeObjectURL(url);
+          status.textContent = 'Transcription complete! Downloaded SRT.';
+          transcribeBtn.disabled = false;
         })
         .catch(err => {
           status.textContent = 'Error: ' + err.message;
+          transcribeBtn.disabled = false;
         });
-    }
+    });
   </script>
 </body>
 </html>
