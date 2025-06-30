@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Drop Video File</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 50px;
+    background: #fafafa;
+  }
+  #drop_zone {
+    width: 400px;
+    height: 150px;
+    border: 3px dashed #bbb;
+    border-radius: 10px;
+    line-height: 150px;
+    color: #bbb;
+    margin: auto;
+    font-size: 24px;
+    cursor: pointer;
+    transition: border-color 0.3s, color 0.3s;
+  }
+  #drop_zone.hover {
+    border-color: #333;
+    color: #333;
+    background-color: #f0f0f0;
+  }
+  #status {
+    margin-top: 20px;
+    font-weight: bold;
+    color: #555;
+  }
+</style>
+</head>
+<body>
+  <h1>Drop video file here</h1>
+  <div id="drop_zone">Drop video file here</div>
+  <input type="file" id="file_input" style="display:none" accept="video/*" />
+  <p id="status"></p>
+
+  <script>
+    const dropZone = document.getElementById('drop_zone');
+    const fileInput = document.getElementById('file_input');
+    const status = document.getElementById('status');
+
+    // Click on drop zone opens file dialog
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // Drag over effect
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('hover');
+    });
+
+    // Drag leave effect
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('hover');
+    });
+
+    // Handle drop
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('hover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        uploadFile(files[0]);
+      }
+    });
+
+    // Handle manual file selection
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        uploadFile(fileInput.files[0]);
+      }
+    });
+
+    // Upload file function
+    function uploadFile(file) {
+      if (!file.type.startsWith('video/')) {
+        alert('Please upload a valid video file.');
+        return;
+      }
+
+      status.textContent = 'Uploading and processing... Please wait.';
+
+      const formData = new FormData();
+      formData.append('video', file);
+
+      fetch('/upload', {
+        method: 'POST',
+        body: formData
+      })
+        .then(response => {
+          if (!response.ok) throw new Error('Server error during upload');
+          return response.blob();
+        })
+        .then(blob => {
+          status.textContent = 'Transcription complete! Starting download...';
+
+          // Create a download link for the received blob
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+
+          // Name the download file as original filename with .srt extension
+          a.download = file.name.replace(/\.[^/.]+$/, '') + '.srt';
+          document.body.appendChild(a);
+          a.click();
+
+          // Cleanup
+          window.URL.revokeObjectURL(url);
+          a.remove();
+
+          status.textContent = 'Drop another video file to transcribe.';
+        })
+        .catch(err => {
+          status.textContent = 'Error: ' + err.message;
+        });
+    }
+  </script>
+</body>
+</html>
